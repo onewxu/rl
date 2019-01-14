@@ -3,6 +3,7 @@ import numpy
 import random
 from gym import spaces
 import gym
+from gym.envs.classic_control import rendering
 
 logger = logging.getLogger(__name__)
 
@@ -13,86 +14,68 @@ class GridEnv(gym.Env):
     }
 
     def __init__(self):
+        self.observation_space = spaces.Discrete(25) #state space
+        self.states = [0,1,5,6,7,8,9,12,13,14,15,16,17,19,20,21,22,24];
+        self.state = None
+        self.statex = None
+        self.statey = None
 
-        self.states = [1,2,3,4,5,6,7,8] #state space
-        self.x=[140,220,300,380,460,140,300,460]
-        self.y=[250,250,250,250,250,150,150,150]
-        self.terminate_states = dict()  #terminate state
-        self.terminate_states[6] = 1
-        self.terminate_states[7] = 1
-        self.terminate_states[8] = 1
+        self.obstacles = [2,3,4,10,11,18,23] #obstacle states
+        self.obstacle_states = dict()  
+        self.obstacle_states[2] = 1
+        self.obstacle_states[3] = 1
+        self.obstacle_states[4] = 1
+        self.obstacle_states[10] = 1
+        self.obstacle_states[11] = 1
+        self.obstacle_states[18] = 1
+        self.obstacle_states[23] = 1
 
-        self.actions = ['n','e','s','w']
+        self.terminate = 14;  #terminate state
+        self.terminate_states = dict()  
+        self.terminate_states[14] = 1
 
-        self.rewards = dict();        #reward
-        self.rewards['1_s'] = -1.0
-        self.rewards['3_s'] = 1.0
-        self.rewards['5_s'] = -1.0
+        self.sizex = 5; 
+        self.sizey = 5;
 
-        self.t = dict();             #state transition
-        self.t['1_s'] = 6
-        self.t['1_e'] = 2
-        self.t['2_w'] = 1
-        self.t['2_e'] = 3
-        self.t['3_s'] = 7
-        self.t['3_w'] = 2
-        self.t['3_e'] = 4
-        self.t['4_w'] = 3
-        self.t['4_e'] = 5
-        self.t['5_s'] = 8
-        self.t['5_w'] = 4
+        self.action_space = spaces.Discrete(4)
 
         #self.seed()
         self.gamma = 0.8         #discount factor
         self.viewer = None
-        self.state = None
-
-    def getTerminal(self):
-        return self.terminate_states
-
-    def getGamma(self):
-        return self.gamma
-
-    def getStates(self):
-        return self.states
-
-    def getAction(self):
-        return self.actions
-    def getTerminate_states(self):
-        return self.terminate_states
-    def setAction(self,s):
-        self.state=s
-    
-    #def _seed(self, seed=None):
-    #    self.np_random, seed = seeding.np_random(seed)
-    #    return [seed]
 
     def step(self, action):
         #system current state
         state = self.state
         if state in self.terminate_states:
             return state, 0, True, {}
-        key = "%d_%s"%(state, action)   #state and action to key
 
-        #state transition
-        if key in self.t:
-            next_state = self.t[key]
-        else:
-            next_state = state
-        self.state = next_state
-
+        statex = self.statex
+        statey = self.statey
+        if action == 0 and statex + 1 < self.sizex:
+            statex = statex + 1
+        if action == 1 and statex > 0:
+            statex = statex - 1
+        if action == 2 and statey + 1 < self.sizey:
+            statey = statey + 1
+        if action == 3 and statey > 0:
+            statey = statey - 1
+        next_state = statey * self.sizex + statex
         is_terminal = False
+        r = 0
+        if next_state in self.obstacle_states:
+            return state, r, is_terminal, {}
 
         if next_state in self.terminate_states:
             is_terminal = True
-
-        if key not in self.rewards:
-            r = 0.0
-        else:
-            r = self.rewards[key]
+            r = 1 
+        self.state = next_state
+        self.statex = statex
+        self.statey = statey
         return next_state, r,is_terminal,{}
     def reset(self):
         self.state = self.states[int(random.random() * len(self.states))]
+        self.statex = self.state % self.sizex
+        self.statey = self.state // self.sizey
         return self.state
     def render(self, mode='human', close=False):
         if close:
@@ -102,93 +85,49 @@ class GridEnv(gym.Env):
             return
         screen_width = 600
         screen_height = 600
-        upper_x = 100
-        upper_y = 100
-        rect_width = 80
-        num_grid = 5
+        rwidth = 80
+        l,r,t,b = 100,100+rwidth,100+rwidth,100
 
         if self.viewer is None:
-            from gym.envs.classic_control import rendering
+            #from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(screen_width, screen_height)
             #create grid world
-            index = 0
-            self.line1 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 1
-            self.line2 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 2
-            self.line3 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 3
-            self.line4 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 4
-            self.line5 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 5
-            self.line6 = rendering.Line((upper_x,upper_y+index*rect_width),(upper_x+num_grid*rect_width,upper_y+index*rect_width))
-            index = 0
-            self.line7 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            index = 1
-            self.line8 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            index = 2
-            self.line9 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            index = 3
-            self.line10 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            index = 4
-            self.line11 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            index = 5
-            self.line12 = rendering.Line((upper_x+index*rect_width,upper_y),(upper_x+index*rect_width,upper_y+num_grid*rect_width))
-            #create first kulo
-            self.kulo1 = rendering.make_circle(40)
-            self.circletrans = rendering.Transform(translation=(140,150))
-            self.kulo1.add_attr(self.circletrans)
-            self.kulo1.set_color(0,0,0)
-            #create second kulo
-            self.kulo2 = rendering.make_circle(40)
-            self.circletrans = rendering.Transform(translation=(460, 150))
-            self.kulo2.add_attr(self.circletrans)
-            self.kulo2.set_color(0, 0, 0)
-            #create gold
-            self.gold = rendering.make_circle(40)
-            self.circletrans = rendering.Transform(translation=(300, 150))
-            self.gold.add_attr(self.circletrans)
-            self.gold.set_color(1, 0.9, 0)
+            for index in range(0, 6):
+                line1 = rendering.Line((l,b+index*rwidth), (l+self.sizex*rwidth,b+index*rwidth))
+                line1.set_color(0.5, 0, 0)
+                self.viewer.add_geom(line1)
+                line2 = rendering.Line((l+index*rwidth,b), (l+index*rwidth,b+self.sizey*rwidth))
+                line2.set_color(0.5, 0, 0)
+                self.viewer.add_geom(line2)
+
+            #create obstacles
+            for index in range(0, len(self.obstacles)):
+                pole1 = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
+                pole1.set_color(0,0,0)
+                tx, ty = self.obstacles[index] % self.sizex, self.obstacles[index] // self.sizex
+                self.poletrans1 = rendering.Transform(translation=(rwidth*tx, rwidth*ty))
+                pole1.add_attr(self.poletrans1)
+                self.viewer.add_geom(pole1)
+
+            #create terminal
+            pole2 = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
+            pole2.set_color(0.2,0.8,0.4)
+            tx, ty = self.terminate % self.sizex, self.terminate // self.sizex
+            self.poletrans2 = rendering.Transform(translation=(rwidth*tx, rwidth*ty))
+            pole2.add_attr(self.poletrans2)
+            self.viewer.add_geom(pole2)
+
             #create robot
-            self.robot= rendering.make_circle(30)
-            self.robotrans = rendering.Transform()
+            tx, ty = self.statex + 0.5, self.statey + 0.5
+            self.robot= rendering.make_circle(30) 
+            self.robotrans = rendering.Transform(translation=(l+rwidth*tx, b+rwidth*ty))
             self.robot.add_attr(self.robotrans)
-            self.robot.set_color(0.8, 0.6, 0.4)
-
-            self.line1.set_color(1, 0, 0)
-            self.line2.set_color(1, 0, 0)
-            self.line3.set_color(1, 0, 0)
-            self.line4.set_color(1, 0, 0)
-            self.line5.set_color(1, 0, 0)
-            self.line6.set_color(1, 0, 0)
-            self.line7.set_color(0, 0, 0)
-            self.line8.set_color(0, 0, 0)
-            self.line9.set_color(0, 0, 0)
-            self.line10.set_color(0, 0, 0)
-            self.line11.set_color(0, 0, 0)
-            self.line12.set_color(0, 0, 0)
-
-            self.viewer.add_geom(self.line1)
-            self.viewer.add_geom(self.line2)
-            self.viewer.add_geom(self.line3)
-            self.viewer.add_geom(self.line4)
-            self.viewer.add_geom(self.line5)
-            self.viewer.add_geom(self.line6)
-            self.viewer.add_geom(self.line7)
-            self.viewer.add_geom(self.line8)
-            self.viewer.add_geom(self.line9)
-            self.viewer.add_geom(self.line10)
-            self.viewer.add_geom(self.line11)
-            self.viewer.add_geom(self.line12)
-            self.viewer.add_geom(self.kulo1)
-            self.viewer.add_geom(self.kulo2)
-            self.viewer.add_geom(self.gold)
+            self.robot.set_color(0.8, 0.2, 0.2)
             self.viewer.add_geom(self.robot)
 
         if self.state is None: return None
-        #self.robotrans.set_translation(self.x[self.state-1],self.y[self.state-1])
-        self.robotrans.set_translation(self.x[self.state-1], self.y[self.state- 1])
+        tx, ty = self.statex + 0.5, self.statey + 0.5
+        self.robotrans.set_translation(l+rwidth*tx, b+rwidth*ty) #translate robot
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
